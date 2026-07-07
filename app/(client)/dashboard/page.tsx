@@ -11,17 +11,23 @@ export default async function ClientDashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: quotes }, { data: profile }, { data: creditRows }] = await Promise.all([
-    supabase
-      .from("quotes")
-      .select("*")
-      .eq("client_id", user!.id)
-      .order("created_at", { ascending: false }),
-    supabase.from("profiles").select("referral_code").eq("id", user!.id).single(),
-    supabase.from("credits").select("amount").eq("profile_id", user!.id),
-  ]);
+  const [{ data: quotes }, { data: profile }, { data: creditRows }, { data: unpaidInvoices }] =
+    await Promise.all([
+      supabase
+        .from("quotes")
+        .select("*")
+        .eq("client_id", user!.id)
+        .order("created_at", { ascending: false }),
+      supabase.from("profiles").select("referral_code").eq("id", user!.id).single(),
+      supabase.from("credits").select("amount").eq("profile_id", user!.id),
+      supabase.from("invoices").select("amount_due").eq("client_id", user!.id).eq("status", "unpaid"),
+    ]);
 
   const creditBalance = (creditRows ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
+  const outstandingBalance = (unpaidInvoices ?? []).reduce(
+    (sum, row) => sum + Number(row.amount_due),
+    0
+  );
   const host = headers().get("host");
   const referralLink = profile?.referral_code
     ? `${host ? `https://${host}` : ""}/signup?ref=${profile.referral_code}`
@@ -38,12 +44,18 @@ export default async function ClientDashboardPage() {
         </Button>
       </div>
 
-      <div className="bg-green-neon border-[3px] border-black shadow-hard p-6 mb-8 grid sm:grid-cols-2 gap-4">
+      <div className="bg-green-neon border-[3px] border-black shadow-hard p-6 mb-8 grid sm:grid-cols-3 gap-4">
         <div>
           <h2 className="font-display uppercase text-sm text-navy mb-1">
             Your Credit Balance
           </h2>
           <p className="text-2xl font-display text-navy">${creditBalance}</p>
+        </div>
+        <div>
+          <h2 className="font-display uppercase text-sm text-navy mb-1">
+            Outstanding Balance
+          </h2>
+          <p className="text-2xl font-display text-navy">${outstandingBalance}</p>
         </div>
         <div>
           <h2 className="font-display uppercase text-sm text-navy mb-1">

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { QuoteStatusBadge } from "@/components/QuoteStatusBadge";
 import { Button } from "@/components/Button";
+import { PayNowButton } from "@/components/PayNowButton";
 import { SERVICES, SERVICE_TIERS, type ServiceId } from "@/lib/pricing";
 
 export default async function ClientQuoteDetailPage({
@@ -24,6 +25,12 @@ export default async function ClientQuoteDetailPage({
     .select("*")
     .eq("quote_id", quote.id)
     .eq("status", "scheduled")
+    .maybeSingle();
+
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("quote_id", quote.id)
     .maybeSingle();
 
   const { data: photos } = await supabase
@@ -140,10 +147,7 @@ export default async function ClientQuoteDetailPage({
             <div className="text-sm font-bold text-navy grid gap-0.5">
               <p>Final confirmed price: ${quote.final_price}</p>
               {quote.credit_applied > 0 && (
-                <>
-                  <p>Credit applied: -${quote.credit_applied}</p>
-                  <p>Amount due: ${quote.final_price - quote.credit_applied}</p>
-                </>
+                <p>Credit applied: -${quote.credit_applied}</p>
               )}
             </div>
           )}
@@ -152,6 +156,26 @@ export default async function ClientQuoteDetailPage({
           )}
         </div>
       </div>
+
+      {invoice && (
+        <div className="bg-white border-[3px] border-black shadow-hard p-6 mt-6">
+          <h2 className="font-display uppercase text-lg text-navy mb-2">
+            Invoice
+          </h2>
+          {invoice.status === "paid" ? (
+            <p className="text-sm font-bold text-navy">
+              Paid in full — thank you!
+            </p>
+          ) : (
+            <>
+              <p className="text-2xl font-display text-navy mb-4">
+                ${invoice.amount_due} due
+              </p>
+              {invoice.amount_due > 0 && <PayNowButton invoiceId={invoice.id} />}
+            </>
+          )}
+        </div>
+      )}
 
       {quote.status === "confirmed" && (
         <div className="bg-green-neon border-[3px] border-black shadow-hard p-6 mt-6">

@@ -10,6 +10,7 @@ quotes, confirm final pricing, and manage the pricing table.
 - **Next.js 14** (App Router) + TypeScript + Tailwind CSS
 - **Supabase**: Postgres, Auth (email/password), Storage
 - **Anthropic API**: vision-based photo analysis
+- **Stripe**: invoice payments (Checkout + webhooks)
 
 ## Setup
 
@@ -24,8 +25,8 @@ quotes, confirm final pricing, and manage the pricing table.
 3. **Run the schema**: open the SQL editor in your Supabase project and run
    the contents of [`supabase/schema.sql`](./supabase/schema.sql). This
    creates the `profiles`, `quotes`, `quote_photos`, `pricing_config`,
-   `availability_rules`, `availability_blocks`, and `appointments` tables
-   along with row-level security policies.
+   `availability_rules`, `availability_blocks`, `appointments`, `credits`,
+   and `invoices` tables along with row-level security policies.
 
 4. **Create the photo storage bucket**: in Supabase Storage, create a new
    **private** bucket named `quote-photos` (or run the commented-out snippet
@@ -35,14 +36,21 @@ quotes, confirm final pricing, and manage the pricing table.
    [Anthropic Console](https://console.anthropic.com) for the photo analysis
    feature.
 
-6. **Configure environment variables**: copy `.env.local.example` to
-   `.env.local` and fill in your Supabase URL/keys and Anthropic API key.
+6. **Set up Stripe**: create a [Stripe](https://dashboard.stripe.com)
+   account, grab your secret key from **Developers → API keys**, then add a
+   webhook endpoint pointing at `https://<your-domain>/api/webhooks/stripe`
+   listening for the `checkout.session.completed` event, and copy its
+   signing secret.
+
+7. **Configure environment variables**: copy `.env.local.example` to
+   `.env.local` and fill in your Supabase URL/keys, Anthropic API key, and
+   Stripe keys.
 
    ```bash
    cp .env.local.example .env.local
    ```
 
-7. **Run the dev server**
+8. **Run the dev server**
 
    ```bash
    npm run dev
@@ -139,6 +147,28 @@ can price it manually.
   re-computed idempotently each time the form is saved.
 - Clients see any credit applied and their remaining amount due on their
   quote detail page.
+
+## How payments & invoicing work
+
+- The moment the owner sets `status = 'confirmed'` with a final price on a
+  quote (`app/(owner)/owner/quotes/[id]/actions.ts`), an `invoices` row is
+  created automatically for the amount due (final price minus any credit
+  applied, via `lib/invoices.ts`'s `calculateAmountDue()`). If credit fully
+  covers the price, the invoice is marked `paid` immediately with no
+  payment step needed.
+- Clients see their invoice and a **Pay Now** button on `/quotes/[id]`
+  (unpaid invoices only). That button calls
+  `POST /api/invoices/checkout`, which creates a Stripe Checkout Session
+  for the amount due and redirects the client to Stripe's hosted payment
+  page.
+- `POST /api/webhooks/stripe` verifies the webhook signature and, on
+  `checkout.session.completed`, marks the matching invoice `paid` with
+  `payment_method: 'stripe'`.
+- The owner can also collect payment outside the app (cash, check, Venmo)
+  and click **Mark as Paid** on `/owner/invoices` or directly on a quote's
+  review page — recorded as `payment_method: 'manual'`.
+- Editing a confirmed quote's price or credit later re-syncs its invoice's
+  `amount_due`, as long as it hasn't been paid or voided yet.
 
 ## Notes on this environment
 

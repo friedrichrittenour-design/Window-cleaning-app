@@ -241,6 +241,35 @@ create policy "credits: owners read/write all" on credits
   );
 
 -- ─────────────────────────────────────────────
+-- invoices (one per confirmed quote)
+-- ─────────────────────────────────────────────
+create table if not exists invoices (
+  id uuid primary key default gen_random_uuid(),
+  quote_id uuid not null unique references quotes (id) on delete cascade,
+  client_id uuid not null references profiles (id) on delete cascade,
+  amount_due numeric not null,
+  status text not null default 'unpaid' check (status in ('unpaid', 'paid', 'void')),
+  payment_method text check (payment_method in ('stripe', 'credit', 'manual')),
+  stripe_checkout_session_id text,
+  stripe_payment_intent_id text,
+  paid_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table invoices enable row level security;
+
+create policy "invoices: clients read own" on invoices
+  for select using (auth.uid() = client_id);
+
+create policy "invoices: owners read/write all" on invoices
+  for all using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  ) with check (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  );
+
+-- ─────────────────────────────────────────────
 -- storage bucket (create via Supabase dashboard or the snippet below)
 -- ─────────────────────────────────────────────
 -- insert into storage.buckets (id, name, public) values ('quote-photos', 'quote-photos', false)

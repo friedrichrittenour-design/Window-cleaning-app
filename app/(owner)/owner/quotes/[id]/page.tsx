@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { QuoteStatusBadge } from "@/components/QuoteStatusBadge";
 import { SERVICES, SERVICE_TIERS, type ServiceId } from "@/lib/pricing";
 import { updateQuote } from "./actions";
+import { markInvoicePaid } from "../../invoices/actions";
 
 export default async function OwnerQuoteDetailPage({
   params,
@@ -35,6 +36,12 @@ export default async function OwnerQuoteDetailPage({
   // credit_applied on this quote is already reflected as a negative ledger
   // entry above, so add it back to get "what's available to allocate here".
   const availableForThisQuote = rawBalance + Number(quote.credit_applied ?? 0);
+
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("quote_id", quote.id)
+    .maybeSingle();
 
   const { data: photos } = await supabase
     .from("quote_photos")
@@ -85,6 +92,28 @@ export default async function OwnerQuoteDetailPage({
               minute: "2-digit",
             })}
           </p>
+        </div>
+      )}
+
+      {invoice && (
+        <div className="border-[3px] border-black shadow-hard-sm p-4 mb-6 inline-flex items-center gap-4 bg-white">
+          <span className="font-bold text-navy text-sm">
+            Invoice: ${invoice.amount_due} —{" "}
+            {invoice.status === "paid"
+              ? `Paid via ${invoice.payment_method}`
+              : "Unpaid"}
+          </span>
+          {invoice.status === "unpaid" && (
+            <form action={markInvoicePaid}>
+              <input type="hidden" name="invoiceId" value={invoice.id} />
+              <button
+                type="submit"
+                className="border-2 border-black bg-yellow-neon font-bold uppercase text-xs px-3 py-2 shadow-hard-sm"
+              >
+                Mark Paid
+              </button>
+            </form>
+          )}
         </div>
       )}
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { REFERRAL_BONUS_AMOUNT } from "@/lib/referrals";
+import { calculateAmountDue } from "@/lib/invoices";
 
 async function getAvailableCredit(
   supabase: ReturnType<typeof createClient>,
@@ -96,6 +97,43 @@ export async function updateQuote(formData: FormData) {
     })
     .eq("id", quoteId);
 
+  // Create or sync the invoice the moment a quote is confirmed with a price.
+  if (status === "confirmed" && finalPrice != null) {
+    const amountDue = calculateAmountDue(finalPrice, creditApplied);
+
+    const { data: existingInvoice } = await supabase
+      .from("invoices")
+      .select("id, status")
+      .eq("quote_id", quoteId)
+      .maybeSingle();
+
+    const paidByCredit = amountDue === 0;
+
+    if (!existingInvoice) {
+      await supabase.from("invoices").insert({
+        quote_id: quoteId,
+        client_id: quote.client_id,
+        amount_due: amountDue,
+        status: paidByCredit ? "paid" : "unpaid",
+        payment_method: paidByCredit ? "credit" : null,
+        paid_at: paidByCredit ? new Date().toISOString() : null,
+      });
+    } else if (existingInvoice.status === "unpaid") {
+      await supabase
+        .from("invoices")
+        .update({
+          amount_due: amountDue,
+          status: paidByCredit ? "paid" : "unpaid",
+          payment_method: paidByCredit ? "credit" : null,
+          paid_at: paidByCredit ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingInvoice.id);
+    }
+    // A 'paid' or 'void' invoice is left untouched.
+  }
+
   revalidatePath(`/owner/quotes/${quoteId}`);
   revalidatePath("/owner/dashboard");
+  revalidatePath("/owner/invoices");
 }

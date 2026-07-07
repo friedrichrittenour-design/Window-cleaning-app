@@ -7,10 +7,12 @@ export async function updatePricing(formData: FormData) {
   const supabase = createClient();
 
   const fields = [
-    "small_window_price",
-    "medium_window_price",
-    "large_window_price",
-    "interior_multiplier",
+    "small_window_exterior_price",
+    "small_window_interior_price",
+    "medium_window_exterior_price",
+    "medium_window_interior_price",
+    "large_window_exterior_price",
+    "large_window_interior_price",
     "tier_plus_tracks_fee",
     "tier_premium_fee",
     "screens_fee",

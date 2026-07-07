@@ -6,13 +6,15 @@ const FIELD_GROUPS: { title: string; fields: { name: string; label: string; step
   {
     title: "Window Cleaning",
     fields: [
-      { name: "small_window_price", label: "Small Window ($)" },
-      { name: "medium_window_price", label: "Medium Window ($)" },
-      { name: "large_window_price", label: "Large Window ($)" },
-      { name: "interior_multiplier", label: "Interior+Exterior Multiplier", step: "0.1" },
+      { name: "small_window_exterior_price", label: "Small Window — Exterior Only ($)" },
+      { name: "small_window_interior_price", label: "Small Window — Interior+Exterior ($)" },
+      { name: "medium_window_exterior_price", label: "Standard / Double Hung / Bay — Exterior Only ($)" },
+      { name: "medium_window_interior_price", label: "Standard / Double Hung / Bay — Interior+Exterior ($)" },
+      { name: "large_window_exterior_price", label: "Large Window — Exterior Only ($)" },
+      { name: "large_window_interior_price", label: "Large Window — Interior+Exterior ($)" },
       { name: "tier_plus_tracks_fee", label: "\"Plus Tracks\" Tier Fee ($)" },
       { name: "tier_premium_fee", label: "\"Premium\" Tier Fee ($)" },
-      { name: "screens_fee", label: "Screen Cleaning Add-on ($)" },
+      { name: "screens_fee", label: "Screen Cleaning ($ per screen)" },
     ],
   },
   {
@@ -52,10 +54,12 @@ export default async function OwnerPricingPage() {
     .single();
 
   const fallback = {
-    small_window_price: DEFAULT_PRICING.windowCleaning.small,
-    medium_window_price: DEFAULT_PRICING.windowCleaning.medium,
-    large_window_price: DEFAULT_PRICING.windowCleaning.large,
-    interior_multiplier: DEFAULT_PRICING.windowCleaning.interiorMultiplier,
+    small_window_exterior_price: DEFAULT_PRICING.windowCleaning.small.exterior,
+    small_window_interior_price: DEFAULT_PRICING.windowCleaning.small.interiorExterior,
+    medium_window_exterior_price: DEFAULT_PRICING.windowCleaning.medium.exterior,
+    medium_window_interior_price: DEFAULT_PRICING.windowCleaning.medium.interiorExterior,
+    large_window_exterior_price: DEFAULT_PRICING.windowCleaning.large.exterior,
+    large_window_interior_price: DEFAULT_PRICING.windowCleaning.large.interiorExterior,
     tier_plus_tracks_fee: DEFAULT_PRICING.windowCleaning.tiers.plus_tracks,
     tier_premium_fee: DEFAULT_PRICING.windowCleaning.tiers.premium,
     screens_fee: DEFAULT_PRICING.windowCleaning.screensFee,

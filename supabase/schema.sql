@@ -34,14 +34,16 @@ create policy "profiles: insert own" on profiles
 -- ─────────────────────────────────────────────
 create table if not exists pricing_config (
   id int primary key default 1,
-  -- window cleaning
-  small_window_price numeric not null default 8,
-  medium_window_price numeric not null default 12,
-  large_window_price numeric not null default 18,
-  interior_multiplier numeric not null default 1.6,
+  -- window cleaning (medium = standard/double-hung pane)
+  small_window_exterior_price numeric not null default 5,
+  small_window_interior_price numeric not null default 14,
+  medium_window_exterior_price numeric not null default 7,
+  medium_window_interior_price numeric not null default 18,
+  large_window_exterior_price numeric not null default 18,
+  large_window_interior_price numeric not null default 46,
   tier_plus_tracks_fee numeric not null default 20,
   tier_premium_fee numeric not null default 45,
-  screens_fee numeric not null default 25,
+  screens_fee numeric not null default 3, -- price per screen
   -- gutter cleaning
   gutter_price_per_linear_foot numeric not null default 1.5,
   gutter_debris_light_multiplier numeric not null default 1,
@@ -54,7 +56,7 @@ create table if not exists pricing_config (
   house_wash_dirtiness_heavy_multiplier numeric not null default 1.5,
   -- shared, job-level
   story_surcharge_per_level numeric not null default 15,
-  minimum_job_price numeric not null default 89,
+  minimum_job_price numeric not null default 150,
   updated_at timestamptz not null default now(),
   constraint single_row check (id = 1)
 );
@@ -135,6 +137,73 @@ create policy "quote_photos: clients manage own" on quote_photos
 
 create policy "quote_photos: owners read all" on quote_photos
   for select using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  );
+
+-- ─────────────────────────────────────────────
+-- availability_rules (recurring weekly hours, owner-managed)
+-- ─────────────────────────────────────────────
+create table if not exists availability_rules (
+  id uuid primary key default gen_random_uuid(),
+  day_of_week int not null check (day_of_week between 0 and 6), -- 0 = Sunday
+  start_time time not null,
+  end_time time not null,
+  created_at timestamptz not null default now()
+);
+
+alter table availability_rules enable row level security;
+
+create policy "availability_rules: owners read/write" on availability_rules
+  for all using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  ) with check (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  );
+
+-- ─────────────────────────────────────────────
+-- availability_blocks (one-off blocked date/time ranges, owner-managed)
+-- ─────────────────────────────────────────────
+create table if not exists availability_blocks (
+  id uuid primary key default gen_random_uuid(),
+  start_at timestamptz not null,
+  end_at timestamptz not null,
+  reason text,
+  created_at timestamptz not null default now()
+);
+
+alter table availability_blocks enable row level security;
+
+create policy "availability_blocks: owners read/write" on availability_blocks
+  for all using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  ) with check (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  );
+
+-- ─────────────────────────────────────────────
+-- appointments (booked visits, one per quote)
+-- ─────────────────────────────────────────────
+create table if not exists appointments (
+  id uuid primary key default gen_random_uuid(),
+  quote_id uuid not null unique references quotes (id) on delete cascade,
+  client_id uuid not null references profiles (id) on delete cascade,
+  start_at timestamptz not null,
+  end_at timestamptz not null,
+  status text not null default 'scheduled'
+    check (status in ('scheduled', 'completed', 'cancelled')),
+  created_at timestamptz not null default now()
+);
+
+alter table appointments enable row level security;
+
+create policy "appointments: clients manage own" on appointments
+  for all using (auth.uid() = client_id)
+  with check (auth.uid() = client_id);
+
+create policy "appointments: owners read/write all" on appointments
+  for all using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  ) with check (
     exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
   );
 

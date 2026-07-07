@@ -28,6 +28,8 @@ export default async function OwnerLayout({
       <Navbar
         links={[
           { href: "/owner/dashboard", label: "Quotes" },
+          { href: "/owner/calendar", label: "Calendar" },
+          { href: "/owner/availability", label: "Availability" },
           { href: "/owner/pricing", label: "Pricing" },
         ]}
         signOutAction={signOut}

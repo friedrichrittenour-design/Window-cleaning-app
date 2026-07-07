@@ -15,7 +15,7 @@ const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
 const SERVICE_SCHEMA: Record<ServiceId, string> = {
   window_cleaning:
-    '"window_cleaning": {"windows": {"small": <int>, "medium": <int>, "large": <int>}, "notes": "<short note>"}',
+    '"window_cleaning": {"windows": {"small": <int>, "medium": <int>, "large": <int>}, "screens": <int, estimated number of window screens visible>, "notes": "<short note>"}',
   gutter_cleaning:
     '"gutter_cleaning": {"linear_feet": <int, estimated total linear feet of gutter visible>, "debris_level": "light"|"moderate"|"heavy", "notes": "<short note>"}',
   house_washing:
@@ -102,10 +102,18 @@ export async function POST(request: NextRequest) {
   const pricing: PricingConfig = pricingRow
     ? {
         windowCleaning: {
-          small: pricingRow.small_window_price,
-          medium: pricingRow.medium_window_price,
-          large: pricingRow.large_window_price,
-          interiorMultiplier: pricingRow.interior_multiplier,
+          small: {
+            exterior: pricingRow.small_window_exterior_price,
+            interiorExterior: pricingRow.small_window_interior_price,
+          },
+          medium: {
+            exterior: pricingRow.medium_window_exterior_price,
+            interiorExterior: pricingRow.medium_window_interior_price,
+          },
+          large: {
+            exterior: pricingRow.large_window_exterior_price,
+            interiorExterior: pricingRow.large_window_interior_price,
+          },
           tiers: {
             basic: 0,
             plus_tracks: pricingRow.tier_plus_tracks_fee,
@@ -193,6 +201,7 @@ export async function POST(request: NextRequest) {
       cleaningType: quote.cleaning_type,
       serviceTier: quote.service_tier,
       addScreens: quote.add_screens,
+      screenCount: Number(analysis.window_cleaning.screens ?? 0),
     };
   }
 

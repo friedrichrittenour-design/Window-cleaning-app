@@ -1,4 +1,4 @@
-# Crystal Clear Window Cleaning
+# Superior Window Washing
 
 A Next.js app for a window cleaning business: clients request quotes by
 uploading photos of their property, an AI vision model estimates the windows
@@ -23,8 +23,9 @@ quotes, confirm final pricing, and manage the pricing table.
 
 3. **Run the schema**: open the SQL editor in your Supabase project and run
    the contents of [`supabase/schema.sql`](./supabase/schema.sql). This
-   creates the `profiles`, `quotes`, `quote_photos`, and `pricing_config`
-   tables along with row-level security policies.
+   creates the `profiles`, `quotes`, `quote_photos`, `pricing_config`,
+   `availability_rules`, `availability_blocks`, and `appointments` tables
+   along with row-level security policies.
 
 4. **Create the photo storage bucket**: in Supabase Storage, create a new
    **private** bucket named `quote-photos` (or run the commented-out snippet
@@ -51,20 +52,23 @@ quotes, confirm final pricing, and manage the pricing table.
 
 All quote pricing logic lives in [`lib/pricing.ts`](./lib/pricing.ts) as a
 pure `calculateQuote()` function — no external dependencies, easy to unit
-test or hand-edit. Default rates:
+test or hand-edit. Clients can request any combination of the three
+services below in one quote; each is priced independently and summed.
+Default rates:
 
 | Item | Default |
 | --- | --- |
-| Small window | $8 |
-| Medium window | $12 |
-| Large window | $18 |
-| Interior + exterior | 1.6× the exterior total |
-| Extra story surcharge | $15 per story above the 1st |
+| Small window | $5 exterior-only, $14 interior+exterior |
+| Standard / double-hung / bay window | $7 exterior-only, $18 interior+exterior |
+| Large window | $18 exterior-only, $46 interior+exterior |
 | Basic tier | included |
 | Plus Tracks tier | +$20 |
 | Premium tier (debris + hard water + tracks) | +$45 |
-| Screen cleaning add-on | +$25 |
-| Minimum job price | $89 |
+| Screen cleaning | $3 per screen (AI-counted) |
+| Gutter cleaning | $1.50 per linear foot × debris multiplier (light 1×, moderate 1.3×, heavy 1.6×) |
+| House washing | $0.20 per sq ft × dirtiness multiplier (light 1×, moderate 1.25×, heavy 1.5×) |
+| Extra story surcharge | $15 per story above the 1st (once per job) |
+| Minimum job price | $150 (once per job) |
 
 Business owners can adjust every one of these rates live from
 `/owner/pricing`, which reads/writes the `pricing_config` table. The photo
@@ -73,24 +77,47 @@ table is ever empty.
 
 ## How the auto-quote flow works
 
-1. A client fills out the form at `/quotes/new`: property type, address,
-   stories, cleaning type, service tier, and a screen-cleaning add-on, plus
-   one or more photos of the property.
+1. A client fills out the form at `/quotes/new`: which service(s) they want
+   (window cleaning, gutter cleaning, house washing), property type,
+   address, stories, and — if window cleaning is selected — cleaning type,
+   service tier, and a screen-cleaning add-on, plus one or more photos of
+   the property.
 2. Photos upload to the private `quote-photos` Storage bucket, and a `quotes`
    row is created with `status = 'pending_analysis'`.
-3. `POST /api/quotes/analyze` downloads the photos server-side, sends them to
-   the Anthropic API with a prompt asking for a strict-JSON count of
-   small/medium/large windows, then runs `calculateQuote()` with that count
-   plus the client's selections.
-4. The `quotes` row is updated with the AI's raw output, an estimated price
-   range, and `status = 'quoted'`.
-5. The business owner reviews the quote (with photos and the AI's notes) at
-   `/owner/quotes/[id]`, and can override the price, add notes, and mark it
-   `confirmed` or `declined`.
+3. `POST /api/quotes/analyze` downloads the photos server-side and sends them
+   to the Anthropic API with a prompt scoped to the selected services —
+   window/screen counts, gutter linear footage + debris level, and/or house
+   wall square footage + dirtiness — then runs `calculateQuote()` with those
+   estimates plus the client's selections.
+4. The `quotes` row is updated with the AI's raw output, a combined
+   estimated price range, a per-service price breakdown, and
+   `status = 'quoted'`.
+5. The business owner reviews the quote (with photos, the AI's notes, and
+   the per-service breakdown) at `/owner/quotes/[id]`, and can override the
+   price, add notes, and mark it `confirmed` or `declined`.
+6. Once confirmed, the client books a visit at `/quotes/[id]/schedule` by
+   picking an open date/time computed from the owner's availability (see
+   below).
 
 If AI analysis fails twice (bad response, parsing error, etc.), the quote is
 left in `pending_analysis` with an error note in `ai_analysis` so the owner
 can price it manually.
+
+## How scheduling works
+
+- The owner sets recurring weekly hours (e.g. Mon–Fri 9am–5pm) at
+  `/owner/availability`, and can block off specific dates (vacation, fully
+  booked, etc.) on the same page.
+- `GET /api/availability/slots?date=YYYY-MM-DD` computes open appointment
+  slots for that date using [`lib/scheduling.ts`](./lib/scheduling.ts)'s
+  pure `getAvailableSlots()` function — weekly hours minus blocked ranges
+  minus already-booked appointments, stepped at 1-hour intervals for
+  2-hour appointment slots (both configurable constants in that file).
+- Once a quote is `confirmed`, the client picks a date on the calendar at
+  `/quotes/[id]/schedule` and books an open time slot, which re-validates
+  the slot is still free before inserting into `appointments` (avoiding a
+  double-booking race).
+- The owner sees all booked visits on a month calendar at `/owner/calendar`.
 
 ## Notes on this environment
 

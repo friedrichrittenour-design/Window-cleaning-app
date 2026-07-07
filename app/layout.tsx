@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Crystal Clear Window Cleaning",
+  title: "Superior Window Washing",
   description:
     "Professional residential & commercial window cleaning. Get an instant photo-based quote.",
 };

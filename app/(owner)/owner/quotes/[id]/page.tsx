@@ -19,6 +19,13 @@ export default async function OwnerQuoteDetailPage({
 
   if (!quote) notFound();
 
+  const { data: appointment } = await supabase
+    .from("appointments")
+    .select("*")
+    .eq("quote_id", quote.id)
+    .eq("status", "scheduled")
+    .maybeSingle();
+
   const { data: photos } = await supabase
     .from("quote_photos")
     .select("*")
@@ -52,6 +59,24 @@ export default async function OwnerQuoteDetailPage({
         </div>
         <QuoteStatusBadge status={quote.status} />
       </div>
+
+      {appointment && (
+        <div className="bg-green-neon border-[3px] border-black shadow-hard-sm p-4 mb-6 inline-block">
+          <p className="font-bold text-navy text-sm">
+            Scheduled:{" "}
+            {new Date(appointment.start_at).toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}{" "}
+            at{" "}
+            {new Date(appointment.start_at).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </p>
+        </div>
+      )}
 
       {signedPhotos.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">

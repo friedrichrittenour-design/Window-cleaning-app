@@ -44,12 +44,16 @@ export const SERVICE_TIERS: {
   },
 ];
 
+export interface WindowSizePricing {
+  exterior: number;
+  interiorExterior: number;
+}
+
 export interface PricingConfig {
   windowCleaning: {
-    small: number;
-    medium: number;
-    large: number;
-    interiorMultiplier: number;
+    small: WindowSizePricing;
+    medium: WindowSizePricing;
+    large: WindowSizePricing;
     tiers: Record<ServiceTier, number>;
     screensFee: number;
   };
@@ -67,16 +71,17 @@ export interface PricingConfig {
 
 export const DEFAULT_PRICING: PricingConfig = {
   windowCleaning: {
-    small: 8,
-    medium: 12,
-    large: 18,
-    interiorMultiplier: 1.6,
+    small: { exterior: 5, interiorExterior: 14 },
+    // Medium = standard pane (e.g. double hung).
+    medium: { exterior: 7, interiorExterior: 18 },
+    large: { exterior: 18, interiorExterior: 46 },
     tiers: {
       basic: 0,
       plus_tracks: 20,
       premium: 45,
     },
-    screensFee: 25,
+    // Price per screen, not a flat fee.
+    screensFee: 3,
   },
   gutterCleaning: {
     pricePerLinearFoot: 1.5,
@@ -95,7 +100,7 @@ export const DEFAULT_PRICING: PricingConfig = {
     },
   },
   storySurchargePerLevel: 15,
-  minimumJobPrice: 89,
+  minimumJobPrice: 150,
 };
 
 export interface QuoteInput {
@@ -106,6 +111,7 @@ export interface QuoteInput {
     cleaningType: CleaningType;
     serviceTier: ServiceTier;
     addScreens: boolean;
+    screenCount: number;
   };
   gutter?: {
     linearFeet: number;
@@ -137,13 +143,18 @@ function windowCleaningSubtotal(
   pricing: PricingConfig["windowCleaning"]
 ): number {
   const { small, medium, large } = input.windowCounts;
-  const base = small * pricing.small + medium * pricing.medium + large * pricing.large;
-  const interiorSurcharge =
-    input.cleaningType === "interior_exterior" ? base * (pricing.interiorMultiplier - 1) : 0;
-  const tierFee = pricing.tiers[input.serviceTier];
-  const screensFee = input.addScreens ? pricing.screensFee : 0;
+  const rateFor = (size: WindowSizePricing) =>
+    input.cleaningType === "interior_exterior" ? size.interiorExterior : size.exterior;
 
-  return base + interiorSurcharge + tierFee + screensFee;
+  const windowsTotal =
+    small * rateFor(pricing.small) +
+    medium * rateFor(pricing.medium) +
+    large * rateFor(pricing.large);
+
+  const tierFee = pricing.tiers[input.serviceTier];
+  const screensFee = input.addScreens ? input.screenCount * pricing.screensFee : 0;
+
+  return windowsTotal + tierFee + screensFee;
 }
 
 function gutterCleaningSubtotal(

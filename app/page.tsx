@@ -226,10 +226,10 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-display font-extrabold text-yellow-neon uppercase">
             <span>🪟</span>
-            <span>Crystal Clear</span>
+            <span>Superior Window Washing</span>
           </div>
           <p className="text-electric text-sm">
-            &copy; {new Date().getFullYear()} Crystal Clear Window Cleaning.
+            &copy; {new Date().getFullYear()} Superior Window Washing.
             All rights reserved.
           </p>
           <div className="flex gap-5">
@@ -237,10 +237,10 @@ export default function HomePage() {
               (555) 123-4567
             </a>
             <a
-              href="mailto:hello@crystalclearwindows.com"
+              href="mailto:hello@superiorwindowwashing.com"
               className="text-green-neon font-bold text-sm hover:text-pink-neon"
             >
-              hello@crystalclearwindows.com
+              hello@superiorwindowwashing.com
             </a>
           </div>
         </div>

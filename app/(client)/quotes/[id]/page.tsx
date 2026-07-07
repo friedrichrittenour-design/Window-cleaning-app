@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { QuoteStatusBadge } from "@/components/QuoteStatusBadge";
+import { Button } from "@/components/Button";
 import { SERVICES, SERVICE_TIERS, type ServiceId } from "@/lib/pricing";
 
 export default async function ClientQuoteDetailPage({
@@ -17,6 +18,13 @@ export default async function ClientQuoteDetailPage({
     .single();
 
   if (!quote) notFound();
+
+  const { data: appointment } = await supabase
+    .from("appointments")
+    .select("*")
+    .eq("quote_id", quote.id)
+    .eq("status", "scheduled")
+    .maybeSingle();
 
   const { data: photos } = await supabase
     .from("quote_photos")
@@ -138,6 +146,41 @@ export default async function ClientQuoteDetailPage({
           )}
         </div>
       </div>
+
+      {quote.status === "confirmed" && (
+        <div className="bg-green-neon border-[3px] border-black shadow-hard p-6 mt-6">
+          <h2 className="font-display uppercase text-lg text-navy mb-2">
+            {appointment ? "Your Visit Is Scheduled" : "Ready to Book"}
+          </h2>
+          {appointment ? (
+            <p className="text-sm font-bold text-navy">
+              {new Date(appointment.start_at).toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}{" "}
+              at{" "}
+              {new Date(appointment.start_at).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-[#10102a] mb-4">
+                Your quote is confirmed — pick a date and time for your visit.
+              </p>
+              <Button
+                href={`/quotes/${quote.id}/schedule`}
+                variant="primary"
+                className="!bg-navy !text-white"
+              >
+                Schedule This Job
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

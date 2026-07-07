@@ -21,7 +21,7 @@ export function Navbar({
           style={{ textShadow: "2px 2px 0 #ff2fd0" }}
         >
           <span className="text-xl">🪟</span>
-          <span>Crystal Clear</span>
+          <span>Superior Window Washing</span>
         </Link>
 
         <nav className="hidden md:flex gap-7 flex-1 justify-center">

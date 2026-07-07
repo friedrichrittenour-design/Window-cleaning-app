@@ -119,6 +119,27 @@ can price it manually.
   double-booking race).
 - The owner sees all booked visits on a month calendar at `/owner/calendar`.
 
+## How the referral program works
+
+- Every client gets a unique referral code (generated at signup,
+  [`lib/referrals.ts`](./lib/referrals.ts)) and a shareable
+  `/signup?ref=CODE` link, both shown on `/dashboard`.
+- A new client can enter someone's referral code at signup, which links
+  their profile via `profiles.referred_by`.
+- Credit is only granted once the referred client's **first job is
+  confirmed** by the owner (`app/(owner)/owner/quotes/[id]/actions.ts`) —
+  both the referrer and the referred client get $20, recorded as rows in
+  the `credits` ledger table. A partial unique index guarantees the
+  referred bonus can only ever be granted once per client, even if they
+  get multiple jobs confirmed later.
+- The owner can redeem a client's available credit balance against any
+  quote from the same review form, via a **Credit to Apply** field that
+  defaults to their full available balance (capped at the final price).
+  Redemptions are recorded as negative ledger entries and are
+  re-computed idempotently each time the form is saved.
+- Clients see any credit applied and their remaining amount due on their
+  quote detail page.
+
 ## Notes on this environment
 
 This app was scaffolded without a live Supabase project or Anthropic API

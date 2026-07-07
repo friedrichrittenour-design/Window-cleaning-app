@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { generateReferralCode } from "@/lib/referrals";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [role, setRole] = useState<"client" | "owner">("client");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState(
+    searchParams.get("ref")?.toUpperCase() ?? ""
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,6 +25,22 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    let referredBy: string | null = null;
+    if (referralCode.trim()) {
+      const { data: referrer } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("referral_code", referralCode.trim().toUpperCase())
+        .maybeSingle();
+
+      if (!referrer) {
+        setError("Referral code not found. Check it and try again, or leave it blank.");
+        setLoading(false);
+        return;
+      }
+      referredBy = referrer.id;
+    }
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
@@ -32,11 +53,24 @@ export default function SignupPage() {
       return;
     }
 
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      role,
-      full_name: fullName,
-    });
+    let profileError: { message: string } | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error: insertError } = await supabase.from("profiles").insert({
+        id: data.user.id,
+        role,
+        full_name: fullName,
+        referral_code: generateReferralCode(),
+        referred_by: referredBy,
+      });
+
+      if (!insertError) {
+        profileError = null;
+        break;
+      }
+
+      profileError = insertError;
+      if (!insertError.message.includes("referral_code")) break;
+    }
 
     if (profileError) {
       setError(profileError.message);
@@ -120,6 +154,23 @@ export default function SignupPage() {
             />
           </label>
 
+          {role === "client" && (
+            <label className="grid gap-1">
+              <span className="text-xs font-bold uppercase text-navy">
+                Referral Code (optional)
+              </span>
+              <input
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                placeholder="e.g. AB12CD"
+                className="border-2 border-navy px-3 py-2.5 bg-[#f4fbff] uppercase"
+              />
+              <span className="text-xs text-[#4a5875]">
+                Got referred by a friend? Enter their code — you both get $20 off.
+              </span>
+            </label>
+          )}
+
           {error && <p className="text-sm font-bold text-pink-neon">{error}</p>}
 
           <button
@@ -139,5 +190,13 @@ export default function SignupPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { QuoteStatusBadge } from "@/components/QuoteStatusBadge";
 import { Button } from "@/components/Button";
+import { REFERRAL_BONUS_AMOUNT } from "@/lib/referrals";
 
 export default async function ClientDashboardPage() {
   const supabase = createClient();
@@ -9,11 +11,21 @@ export default async function ClientDashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: quotes } = await supabase
-    .from("quotes")
-    .select("*")
-    .eq("client_id", user!.id)
-    .order("created_at", { ascending: false });
+  const [{ data: quotes }, { data: profile }, { data: creditRows }] = await Promise.all([
+    supabase
+      .from("quotes")
+      .select("*")
+      .eq("client_id", user!.id)
+      .order("created_at", { ascending: false }),
+    supabase.from("profiles").select("referral_code").eq("id", user!.id).single(),
+    supabase.from("credits").select("amount").eq("profile_id", user!.id),
+  ]);
+
+  const creditBalance = (creditRows ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
+  const host = headers().get("host");
+  const referralLink = profile?.referral_code
+    ? `${host ? `https://${host}` : ""}/signup?ref=${profile.referral_code}`
+    : null;
 
   return (
     <div>
@@ -24,6 +36,35 @@ export default async function ClientDashboardPage() {
         <Button href="/quotes/new" className="!px-5 !py-2.5 !text-xs">
           + New Quote
         </Button>
+      </div>
+
+      <div className="bg-green-neon border-[3px] border-black shadow-hard p-6 mb-8 grid sm:grid-cols-2 gap-4">
+        <div>
+          <h2 className="font-display uppercase text-sm text-navy mb-1">
+            Your Credit Balance
+          </h2>
+          <p className="text-2xl font-display text-navy">${creditBalance}</p>
+        </div>
+        <div>
+          <h2 className="font-display uppercase text-sm text-navy mb-1">
+            Give ${REFERRAL_BONUS_AMOUNT}, Get ${REFERRAL_BONUS_AMOUNT}
+          </h2>
+          {referralLink ? (
+            <>
+              <p className="text-xs text-[#10102a] mb-1">
+                Share your code — you both get ${REFERRAL_BONUS_AMOUNT} off
+                once their first job is confirmed.
+              </p>
+              <p className="font-bold text-navy text-sm break-all">
+                {referralLink}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-[#10102a]">
+              Your referral code will appear here shortly.
+            </p>
+          )}
+        </div>
       </div>
 
       {!quotes || quotes.length === 0 ? (

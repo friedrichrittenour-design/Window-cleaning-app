@@ -26,6 +26,16 @@ export default async function OwnerQuoteDetailPage({
     .eq("status", "scheduled")
     .maybeSingle();
 
+  const { data: creditRows } = await supabase
+    .from("credits")
+    .select("amount")
+    .eq("profile_id", quote.client_id);
+
+  const rawBalance = (creditRows ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
+  // credit_applied on this quote is already reflected as a negative ledger
+  // entry above, so add it back to get "what's available to allocate here".
+  const availableForThisQuote = rawBalance + Number(quote.credit_applied ?? 0);
+
   const { data: photos } = await supabase
     .from("quote_photos")
     .select("*")
@@ -170,6 +180,21 @@ export default async function OwnerQuoteDetailPage({
               type="number"
               step="0.01"
               defaultValue={quote.final_price ?? quote.estimated_low ?? ""}
+              className="border-2 border-navy px-3 py-2.5 bg-[#f4fbff]"
+            />
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs font-bold uppercase text-navy">
+              Credit to Apply ($) — client has ${availableForThisQuote} available
+            </span>
+            <input
+              name="creditApplied"
+              type="number"
+              step="0.01"
+              min={0}
+              max={availableForThisQuote}
+              defaultValue={quote.credit_applied || Math.min(availableForThisQuote, quote.final_price ?? quote.estimated_low ?? 0)}
               className="border-2 border-navy px-3 py-2.5 bg-[#f4fbff]"
             />
           </label>

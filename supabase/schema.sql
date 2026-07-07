@@ -10,6 +10,8 @@ create table if not exists profiles (
   role text not null check (role in ('client', 'owner')),
   full_name text,
   phone text,
+  referral_code text unique,
+  referred_by uuid references profiles (id),
   created_at timestamptz not null default now()
 );
 
@@ -93,6 +95,7 @@ create table if not exists quotes (
   estimated_high numeric,
   service_breakdown jsonb,
   final_price numeric,
+  credit_applied numeric not null default 0,
   owner_notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -201,6 +204,36 @@ create policy "appointments: clients manage own" on appointments
   with check (auth.uid() = client_id);
 
 create policy "appointments: owners read/write all" on appointments
+  for all using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  ) with check (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
+  );
+
+-- ─────────────────────────────────────────────
+-- credits (referral bonuses + redemptions ledger)
+-- ─────────────────────────────────────────────
+create table if not exists credits (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references profiles (id) on delete cascade,
+  amount numeric not null, -- positive = earned, negative = redeemed
+  reason text not null
+    check (reason in ('referral_referrer', 'referral_referred', 'redeemed', 'adjustment')),
+  quote_id uuid references quotes (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+-- A client can only ever earn the "referred" signup bonus once, even under
+-- concurrent quote confirmations.
+create unique index if not exists credits_referral_referred_once on credits (profile_id)
+  where reason = 'referral_referred';
+
+alter table credits enable row level security;
+
+create policy "credits: clients read own" on credits
+  for select using (auth.uid() = profile_id);
+
+create policy "credits: owners read/write all" on credits
   for all using (
     exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'owner')
   ) with check (

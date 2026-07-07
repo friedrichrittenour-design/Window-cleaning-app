@@ -136,10 +136,16 @@ export default async function ClientQuoteDetailPage({
             </dl>
           )}
 
-          {quote.final_price && (
-            <p className="text-sm font-bold text-navy">
-              Final confirmed price: ${quote.final_price}
-            </p>
+          {quote.final_price != null && (
+            <div className="text-sm font-bold text-navy grid gap-0.5">
+              <p>Final confirmed price: ${quote.final_price}</p>
+              {quote.credit_applied > 0 && (
+                <>
+                  <p>Credit applied: -${quote.credit_applied}</p>
+                  <p>Amount due: ${quote.final_price - quote.credit_applied}</p>
+                </>
+              )}
+            </div>
           )}
           {notes.length > 0 && (
             <p className="text-xs text-[#10102a] mt-4">{notes.join(" ")}</p>

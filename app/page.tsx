@@ -65,9 +65,8 @@ export default function HomePage() {
       <div className="bg-black border-t-[3px] border-electric border-b-[3px] border-b-pink-neon overflow-hidden whitespace-nowrap py-2">
         <div className="inline-block pl-full animate-marquee">
           <span className="text-yellow-neon font-display font-bold tracking-wide text-sm">
-            ★ NOW BOOKING ★ FULLY INSURED ★ INSTANT PHOTO QUOTES ★ 100%
-            SATISFACTION GUARANTEED ★ NOW BOOKING ★ FULLY INSURED ★ INSTANT
-            PHOTO QUOTES ★ 100% SATISFACTION GUARANTEED ★
+            ★ NOW BOOKING ★ FULLY INSURED ★ INSTANT PHOTO QUOTES ★ NOW
+            BOOKING ★ FULLY INSURED ★ INSTANT PHOTO QUOTES ★
           </span>
         </div>
       </div>
@@ -87,8 +86,7 @@ export default function HomePage() {
               <p className="text-white max-w-[46ch] mb-6">
                 Snap a photo of your house or porch and get an instant price
                 estimate for window cleaning, gutter cleaning, or house
-                washing — no waiting for a callback. Fully insured,
-                satisfaction guaranteed.
+                washing — no waiting for a callback. Fully insured.
               </p>
               <div className="flex flex-wrap gap-4 mb-7">
                 <Button href="/signup">Get an Instant Quote</Button>
@@ -160,7 +158,7 @@ export default function HomePage() {
                   ["Instant photo-based quotes", "Upload a picture and get a price range in seconds."],
                   ["Fully licensed & insured", "Work with confidence — every job is covered."],
                   ["On-time, every time", "Text and email reminders before every visit."],
-                  ["100% satisfaction guarantee", "Not happy? We'll come back and make it right, free."],
+                  ["Give $20, get $20", "Refer a friend and you both save on your next job."],
                 ].map(([title, body]) => (
                   <li key={title} className="relative pl-9">
                     <span className="absolute left-0 -top-0.5 w-6 h-6 rounded-full bg-yellow-neon border-2 border-black flex items-center justify-center text-navy text-xs">

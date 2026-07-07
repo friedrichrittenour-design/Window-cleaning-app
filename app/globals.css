@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-[#10102a] font-body;
+}
+
+.text-gradient-retro {
+  background: linear-gradient(90deg, #0055ff, #ff2fd0 60%, #b026ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(3px 3px 0 #000000);
+}
+
+.bg-grid {
+  background-color: #f4fbff;
+  background-image: linear-gradient(#00c8ff 2px, transparent 2px),
+    linear-gradient(90deg, #00c8ff 2px, transparent 2px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+}
+
+.bg-diagonal-navy {
+  background: repeating-linear-gradient(
+    135deg,
+    #0a0a2a,
+    #0a0a2a 40px,
+    #0f0f3a 40px,
+    #0f0f3a 80px
+  );
+}
+
+.bg-diagonal-stripes {
+  background: repeating-linear-gradient(
+    45deg,
+    #00c8ff,
+    #00c8ff 20px,
+    #ff2fd0 20px,
+    #ff2fd0 40px
+  );
+}

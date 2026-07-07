@@ -1,19 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { calculateQuote, DEFAULT_PRICING, type PricingConfig } from "@/lib/pricing";
+import {
+  calculateQuote,
+  DEFAULT_PRICING,
+  type PricingConfig,
+  type QuoteInput,
+  type ServiceId,
+} from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
-const ANALYSIS_PROMPT = `You are an expert window-cleaning estimator. Look at the attached photo(s) of a house, porch, or building and estimate:
-- the number of windows visible, classified as "small", "medium", or "large"
-- the number of stories visible
-- any complexity notes (e.g. bay windows, hard-to-reach areas, heavy dirt/hard water staining)
+const SERVICE_SCHEMA: Record<ServiceId, string> = {
+  window_cleaning:
+    '"window_cleaning": {"windows": {"small": <int>, "medium": <int>, "large": <int>}, "notes": "<short note>"}',
+  gutter_cleaning:
+    '"gutter_cleaning": {"linear_feet": <int, estimated total linear feet of gutter visible>, "debris_level": "light"|"moderate"|"heavy", "notes": "<short note>"}',
+  house_washing:
+    '"house_washing": {"square_feet": <int, estimated exterior wall square footage visible>, "dirtiness": "light"|"moderate"|"heavy", "notes": "<short note>"}',
+};
+
+function buildPrompt(services: ServiceId[]): string {
+  const sections = services.map((s) => SERVICE_SCHEMA[s]).join(",\n  ");
+
+  return `You are an expert exterior-cleaning estimator. Look at the attached photo(s) of a house, porch, or building and estimate the following, based only on the services requested below.
+
+Requested services: ${services.join(", ")}
 
 Respond with ONLY strict JSON in this exact shape, no other text:
-{"windows": {"small": <int>, "medium": <int>, "large": <int>}, "stories_visible": <int>, "notes": "<one or two sentence summary>"}`;
+{
+  ${sections},
+  "stories_visible": <int>
+}`;
+}
 
 function extractJson(text: string): any {
   const match = text.match(/\{[\s\S]*\}/);
@@ -38,6 +59,8 @@ export async function POST(request: NextRequest) {
   if (quoteError || !quote) {
     return NextResponse.json({ error: "Quote not found" }, { status: 404 });
   }
+
+  const services: ServiceId[] = quote.services ?? [];
 
   const { data: photoRows } = await supabase
     .from("quote_photos")
@@ -78,22 +101,41 @@ export async function POST(request: NextRequest) {
 
   const pricing: PricingConfig = pricingRow
     ? {
-        small: pricingRow.small_window_price,
-        medium: pricingRow.medium_window_price,
-        large: pricingRow.large_window_price,
-        interiorMultiplier: pricingRow.interior_multiplier,
-        storySurchargePerLevel: pricingRow.story_surcharge_per_level,
-        tiers: {
-          basic: 0,
-          plus_tracks: pricingRow.tier_plus_tracks_fee,
-          premium: pricingRow.tier_premium_fee,
+        windowCleaning: {
+          small: pricingRow.small_window_price,
+          medium: pricingRow.medium_window_price,
+          large: pricingRow.large_window_price,
+          interiorMultiplier: pricingRow.interior_multiplier,
+          tiers: {
+            basic: 0,
+            plus_tracks: pricingRow.tier_plus_tracks_fee,
+            premium: pricingRow.tier_premium_fee,
+          },
+          screensFee: pricingRow.screens_fee,
         },
-        screensFee: pricingRow.screens_fee,
+        gutterCleaning: {
+          pricePerLinearFoot: pricingRow.gutter_price_per_linear_foot,
+          debrisMultipliers: {
+            light: pricingRow.gutter_debris_light_multiplier,
+            moderate: pricingRow.gutter_debris_moderate_multiplier,
+            heavy: pricingRow.gutter_debris_heavy_multiplier,
+          },
+        },
+        houseWashing: {
+          pricePerSqFt: pricingRow.house_wash_price_per_sqft,
+          dirtinessMultipliers: {
+            light: pricingRow.house_wash_dirtiness_light_multiplier,
+            moderate: pricingRow.house_wash_dirtiness_moderate_multiplier,
+            heavy: pricingRow.house_wash_dirtiness_heavy_multiplier,
+          },
+        },
+        storySurchargePerLevel: pricingRow.story_surcharge_per_level,
         minimumJobPrice: pricingRow.minimum_job_price,
       }
     : DEFAULT_PRICING;
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const prompt = buildPrompt(services);
 
   let analysis: any = null;
   let lastError: string | null = null;
@@ -102,11 +144,11 @@ export async function POST(request: NextRequest) {
     try {
       const response = await anthropic.messages.create({
         model: MODEL,
-        max_tokens: 500,
+        max_tokens: 700,
         messages: [
           {
             role: "user",
-            content: [...images, { type: "text", text: ANALYSIS_PROMPT }],
+            content: [...images, { type: "text", text: prompt }],
           },
         ],
       });
@@ -136,22 +178,39 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const windowCounts = {
-    small: Number(analysis.windows?.small ?? 0),
-    medium: Number(analysis.windows?.medium ?? 0),
-    large: Number(analysis.windows?.large ?? 0),
+  const quoteInput: QuoteInput = {
+    services,
+    stories: quote.stories,
   };
 
-  const result = calculateQuote(
-    {
-      windowCounts,
-      stories: quote.stories,
+  if (services.includes("window_cleaning") && analysis.window_cleaning) {
+    quoteInput.window = {
+      windowCounts: {
+        small: Number(analysis.window_cleaning.windows?.small ?? 0),
+        medium: Number(analysis.window_cleaning.windows?.medium ?? 0),
+        large: Number(analysis.window_cleaning.windows?.large ?? 0),
+      },
       cleaningType: quote.cleaning_type,
       serviceTier: quote.service_tier,
       addScreens: quote.add_screens,
-    },
-    pricing
-  );
+    };
+  }
+
+  if (services.includes("gutter_cleaning") && analysis.gutter_cleaning) {
+    quoteInput.gutter = {
+      linearFeet: Number(analysis.gutter_cleaning.linear_feet ?? 0),
+      debrisLevel: analysis.gutter_cleaning.debris_level ?? "moderate",
+    };
+  }
+
+  if (services.includes("house_washing") && analysis.house_washing) {
+    quoteInput.houseWash = {
+      squareFeet: Number(analysis.house_washing.square_feet ?? 0),
+      dirtiness: analysis.house_washing.dirtiness ?? "moderate",
+    };
+  }
+
+  const result = calculateQuote(quoteInput, pricing);
 
   await supabase
     .from("quotes")
@@ -159,6 +218,7 @@ export async function POST(request: NextRequest) {
       ai_analysis: analysis,
       estimated_low: result.low,
       estimated_high: result.high,
+      service_breakdown: result.perService,
       status: "quoted",
       updated_at: new Date().toISOString(),
     })
@@ -167,5 +227,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     estimated_low: result.low,
     estimated_high: result.high,
+    service_breakdown: result.perService,
   });
 }

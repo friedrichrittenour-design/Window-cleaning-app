@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { QuoteStatusBadge } from "@/components/QuoteStatusBadge";
-import { SERVICE_TIERS } from "@/lib/pricing";
+import { SERVICES, SERVICE_TIERS, type ServiceId } from "@/lib/pricing";
 
 export default async function ClientQuoteDetailPage({
   params,
@@ -33,6 +33,13 @@ export default async function ClientQuoteDetailPage({
   );
 
   const tier = SERVICE_TIERS.find((t) => t.id === quote.service_tier);
+  const services: ServiceId[] = quote.services ?? [];
+  const windowsSelected = services.includes("window_cleaning");
+  const breakdown: Partial<Record<ServiceId, { subtotal: number }>> =
+    quote.service_breakdown ?? {};
+  const notes: string[] = services
+    .map((s) => quote.ai_analysis?.[s]?.notes)
+    .filter(Boolean);
 
   return (
     <div>
@@ -69,11 +76,25 @@ export default async function ClientQuoteDetailPage({
             <Row label="Property Type" value={quote.property_type} />
             <Row label="Stories" value={String(quote.stories)} />
             <Row
-              label="Cleaning"
-              value={quote.cleaning_type === "interior_exterior" ? "Interior + Exterior" : "Exterior Only"}
+              label="Services"
+              value={services
+                .map((s) => SERVICES.find((svc) => svc.id === s)?.label ?? s)
+                .join(", ")}
             />
-            <Row label="Service Tier" value={tier?.label ?? quote.service_tier} />
-            <Row label="Screen Cleaning" value={quote.add_screens ? "Yes" : "No"} />
+            {windowsSelected && (
+              <>
+                <Row
+                  label="Window Cleaning"
+                  value={
+                    quote.cleaning_type === "interior_exterior"
+                      ? "Interior + Exterior"
+                      : "Exterior Only"
+                  }
+                />
+                <Row label="Window Service Tier" value={tier?.label ?? quote.service_tier} />
+                <Row label="Screen Cleaning" value={quote.add_screens ? "Yes" : "No"} />
+              </>
+            )}
           </dl>
         </div>
 
@@ -91,15 +112,29 @@ export default async function ClientQuoteDetailPage({
               ${quote.estimated_low}–${quote.estimated_high}
             </p>
           )}
+
+          {Object.keys(breakdown).length > 0 && (
+            <dl className="grid gap-1 text-xs mb-3">
+              {(Object.keys(breakdown) as ServiceId[]).map((id) => (
+                <div key={id} className="flex justify-between">
+                  <dt className="text-[#10102a]">
+                    {SERVICES.find((s) => s.id === id)?.label ?? id}
+                  </dt>
+                  <dd className="font-bold text-navy">
+                    ~${Math.round(breakdown[id]!.subtotal)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
           {quote.final_price && (
             <p className="text-sm font-bold text-navy">
               Final confirmed price: ${quote.final_price}
             </p>
           )}
-          {quote.ai_analysis?.notes && (
-            <p className="text-xs text-[#10102a] mt-4">
-              {quote.ai_analysis.notes}
-            </p>
+          {notes.length > 0 && (
+            <p className="text-xs text-[#10102a] mt-4">{notes.join(" ")}</p>
           )}
         </div>
       </div>

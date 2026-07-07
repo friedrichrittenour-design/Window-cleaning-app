@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PhotoUploader } from "@/components/PhotoUploader";
-import { SERVICE_TIERS, type ServiceTier } from "@/lib/pricing";
+import { SERVICES, SERVICE_TIERS, type ServiceId, type ServiceTier } from "@/lib/pricing";
 
 export default function NewQuotePage() {
   const router = useRouter();
   const supabase = createClient();
 
   const [files, setFiles] = useState<File[]>([]);
+  const [services, setServices] = useState<ServiceId[]>(["window_cleaning"]);
   const [propertyType, setPropertyType] = useState<"residential" | "commercial">(
     "residential"
   );
@@ -25,10 +26,22 @@ export default function NewQuotePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const windowsSelected = services.includes("window_cleaning");
+
+  function toggleService(id: ServiceId) {
+    setServices((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (files.length === 0) {
       setError("Please add at least one photo.");
+      return;
+    }
+    if (services.length === 0) {
+      setError("Please select at least one service.");
       return;
     }
 
@@ -52,9 +65,10 @@ export default function NewQuotePage() {
         property_type: propertyType,
         address,
         stories,
-        cleaning_type: cleaningType,
-        service_tier: serviceTier,
-        add_screens: addScreens,
+        services,
+        cleaning_type: windowsSelected ? cleaningType : null,
+        service_tier: windowsSelected ? serviceTier : null,
+        add_screens: windowsSelected ? addScreens : false,
         status: "pending_analysis",
       })
       .select()
@@ -106,6 +120,31 @@ export default function NewQuotePage() {
       >
         <PhotoUploader files={files} onChange={setFiles} />
 
+        <div>
+          <span className="text-xs font-bold uppercase text-navy block mb-2">
+            Which services do you need?
+          </span>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {SERVICES.map((service) => (
+              <button
+                key={service.id}
+                type="button"
+                onClick={() => toggleService(service.id)}
+                className={`text-left border-[3px] border-black p-4 shadow-hard-sm ${
+                  services.includes(service.id) ? "bg-green-neon" : "bg-white"
+                }`}
+              >
+                <span className="font-bold uppercase text-sm text-navy block">
+                  {service.label}
+                </span>
+                <span className="text-xs text-[#4a5875]">
+                  {service.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid sm:grid-cols-2 gap-4">
           <label className="grid gap-1">
             <span className="text-xs font-bold uppercase text-navy">
@@ -150,65 +189,69 @@ export default function NewQuotePage() {
           />
         </label>
 
-        <div>
-          <span className="text-xs font-bold uppercase text-navy block mb-2">
-            Cleaning Type
-          </span>
-          <div className="grid grid-cols-2 gap-3">
-            {(
-              [
-                ["exterior", "Exterior Only"],
-                ["interior_exterior", "Interior + Exterior"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setCleaningType(value)}
-                className={`border-[3px] border-black py-2.5 font-bold uppercase text-xs shadow-hard-sm ${
-                  cleaningType === value ? "bg-electric" : "bg-white"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {windowsSelected && (
+          <>
+            <div>
+              <span className="text-xs font-bold uppercase text-navy block mb-2">
+                Window Cleaning Type
+              </span>
+              <div className="grid grid-cols-2 gap-3">
+                {(
+                  [
+                    ["exterior", "Exterior Only"],
+                    ["interior_exterior", "Interior + Exterior"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setCleaningType(value)}
+                    className={`border-[3px] border-black py-2.5 font-bold uppercase text-xs shadow-hard-sm ${
+                      cleaningType === value ? "bg-electric" : "bg-white"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <div>
-          <span className="text-xs font-bold uppercase text-navy block mb-2">
-            Service Tier
-          </span>
-          <div className="grid gap-3">
-            {SERVICE_TIERS.map((tier) => (
-              <button
-                key={tier.id}
-                type="button"
-                onClick={() => setServiceTier(tier.id)}
-                className={`text-left border-[3px] border-black p-4 shadow-hard-sm ${
-                  serviceTier === tier.id ? "bg-yellow-neon" : "bg-white"
-                }`}
-              >
-                <span className="font-bold uppercase text-sm text-navy block">
-                  {tier.label}
-                </span>
-                <span className="text-xs text-[#4a5875]">
-                  {tier.description}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+            <div>
+              <span className="text-xs font-bold uppercase text-navy block mb-2">
+                Window Service Tier
+              </span>
+              <div className="grid gap-3">
+                {SERVICE_TIERS.map((tier) => (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    onClick={() => setServiceTier(tier.id)}
+                    className={`text-left border-[3px] border-black p-4 shadow-hard-sm ${
+                      serviceTier === tier.id ? "bg-yellow-neon" : "bg-white"
+                    }`}
+                  >
+                    <span className="font-bold uppercase text-sm text-navy block">
+                      {tier.label}
+                    </span>
+                    <span className="text-xs text-[#4a5875]">
+                      {tier.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <label className="flex items-center gap-3 font-bold text-sm uppercase text-navy">
-          <input
-            type="checkbox"
-            checked={addScreens}
-            onChange={(e) => setAddScreens(e.target.checked)}
-            className="w-5 h-5"
-          />
-          Add screen cleaning (+add-on)
-        </label>
+            <label className="flex items-center gap-3 font-bold text-sm uppercase text-navy">
+              <input
+                type="checkbox"
+                checked={addScreens}
+                onChange={(e) => setAddScreens(e.target.checked)}
+                className="w-5 h-5"
+              />
+              Add screen cleaning (+add-on)
+            </label>
+          </>
+        )}
 
         {error && <p className="text-sm font-bold text-pink-neon">{error}</p>}
 

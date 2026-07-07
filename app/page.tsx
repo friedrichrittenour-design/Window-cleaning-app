@@ -4,21 +4,21 @@ import { Card } from "@/components/Card";
 
 const services = [
   {
-    icon: "🏠",
-    title: "Residential Cleaning",
-    text: "Interior & exterior window washing for houses, condos, and apartments — screens and sills included.",
+    icon: "🪟",
+    title: "Window Cleaning",
+    text: "Streak-free interior & exterior window washing, with Basic, Plus Tracks, and Premium tiers plus screen cleaning.",
     bg: "bg-[#d8f6ff]",
   },
   {
-    icon: "🏢",
-    title: "Commercial Cleaning",
-    text: "Storefronts, office buildings, and high-rises cleaned on a schedule that fits your business.",
+    icon: "🍂",
+    title: "Gutter Cleaning",
+    text: "Debris removal and flush-out for gutters & downspouts so water flows where it should.",
     bg: "bg-[#ffe0f7]",
   },
   {
-    icon: "✨",
-    title: "Track & Hard Water Care",
-    text: "Debris removal, hard water stain treatment, and track cleaning for a truly finished look.",
+    icon: "🧼",
+    title: "House Washing",
+    text: "Soft-wash exterior siding, brick, and stucco cleaning that lifts dirt and grime without damage.",
     bg: "bg-[#fff9c4]",
   },
   {
@@ -80,14 +80,15 @@ export default function HomePage() {
                 ✧ Residential &amp; Commercial ✧
               </span>
               <h1 className="font-display uppercase text-4xl md:text-5xl leading-[1.15] text-gradient-retro mb-4">
-                Spotless Windows.
+                Spotless Homes.
                 <br />
                 Instant Quotes.
               </h1>
               <p className="text-white max-w-[46ch] mb-6">
                 Snap a photo of your house or porch and get an instant price
-                estimate — no waiting for a callback. Streak-free results,
-                fully insured, satisfaction guaranteed.
+                estimate for window cleaning, gutter cleaning, or house
+                washing — no waiting for a callback. Fully insured,
+                satisfaction guaranteed.
               </p>
               <div className="flex flex-wrap gap-4 mb-7">
                 <Button href="/signup">Get an Instant Quote</Button>

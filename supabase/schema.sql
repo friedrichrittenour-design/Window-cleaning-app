@@ -34,14 +34,26 @@ create policy "profiles: insert own" on profiles
 -- ─────────────────────────────────────────────
 create table if not exists pricing_config (
   id int primary key default 1,
+  -- window cleaning
   small_window_price numeric not null default 8,
   medium_window_price numeric not null default 12,
   large_window_price numeric not null default 18,
   interior_multiplier numeric not null default 1.6,
-  story_surcharge_per_level numeric not null default 15,
   tier_plus_tracks_fee numeric not null default 20,
   tier_premium_fee numeric not null default 45,
   screens_fee numeric not null default 25,
+  -- gutter cleaning
+  gutter_price_per_linear_foot numeric not null default 1.5,
+  gutter_debris_light_multiplier numeric not null default 1,
+  gutter_debris_moderate_multiplier numeric not null default 1.3,
+  gutter_debris_heavy_multiplier numeric not null default 1.6,
+  -- house washing
+  house_wash_price_per_sqft numeric not null default 0.2,
+  house_wash_dirtiness_light_multiplier numeric not null default 1,
+  house_wash_dirtiness_moderate_multiplier numeric not null default 1.25,
+  house_wash_dirtiness_heavy_multiplier numeric not null default 1.5,
+  -- shared, job-level
+  story_surcharge_per_level numeric not null default 15,
   minimum_job_price numeric not null default 89,
   updated_at timestamptz not null default now(),
   constraint single_row check (id = 1)
@@ -69,12 +81,15 @@ create table if not exists quotes (
   property_type text not null check (property_type in ('residential', 'commercial')),
   address text,
   stories int not null default 1,
-  cleaning_type text not null check (cleaning_type in ('exterior', 'interior_exterior')),
-  service_tier text not null check (service_tier in ('basic', 'plus_tracks', 'premium')),
+  services text[] not null check (array_length(services, 1) > 0),
+  -- window-cleaning-only fields; only meaningful when 'window_cleaning' is in services
+  cleaning_type text check (cleaning_type in ('exterior', 'interior_exterior')),
+  service_tier text check (service_tier in ('basic', 'plus_tracks', 'premium')),
   add_screens boolean not null default false,
   ai_analysis jsonb,
   estimated_low numeric,
   estimated_high numeric,
+  service_breakdown jsonb,
   final_price numeric,
   owner_notes text,
   created_at timestamptz not null default now(),

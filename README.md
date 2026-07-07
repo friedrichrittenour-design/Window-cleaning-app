@@ -170,9 +170,41 @@ can price it manually.
 - Editing a confirmed quote's price or credit later re-syncs its invoice's
   `amount_due`, as long as it hasn't been paid or voided yet.
 
+## Deploying
+
+This app has no platform-specific config — any Node 18.17+ host that runs
+Next.js works. [Vercel](https://vercel.com) is the path of least
+resistance for Next.js specifically:
+
+1. **Import the repo**: on [vercel.com/new](https://vercel.com/new), import
+   this GitHub repository. Vercel auto-detects Next.js — no build settings
+   to change.
+2. **Add environment variables**: in the project's **Settings →
+   Environment Variables**, add everything from `.env.local.example`
+   (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`,
+   `STRIPE_WEBHOOK_SECRET`).
+3. **Deploy**. Vercel gives you a `https://<project>.vercel.app` URL (or
+   attach a custom domain under **Settings → Domains**).
+4. **Point the Stripe webhook at the live URL**: in the Stripe Dashboard →
+   **Developers → Webhooks → Add endpoint**, use
+   `https://<your-domain>/api/webhooks/stripe`, subscribe to
+   `checkout.session.completed`, then copy its signing secret into
+   `STRIPE_WEBHOOK_SECRET` (redeploy after adding/changing it).
+5. **Update Supabase's auth URL**: in the Supabase Dashboard →
+   **Authentication → URL Configuration**, set the Site URL to your live
+   domain so any auth emails (password reset, etc.) link back to the
+   right place.
+
+`app/api/quotes/analyze/route.ts` sets `maxDuration = 60` since downloading
+photos and calling the vision model can exceed the default 10s serverless
+timeout — Vercel's Hobby plan caps functions at 60s max, Pro allows more if
+this ever needs to go higher for large multi-photo requests.
+
 ## Notes on this environment
 
-This app was scaffolded without a live Supabase project or Anthropic API
-key — both must be supplied (steps 2–6 above) before signup, quote
-submission, or AI analysis will work end-to-end. `npm run build` and the
-public landing page (`/`) work without any of those credentials.
+This app was scaffolded without live Supabase, Anthropic, or Stripe
+credentials — all three must be supplied (see Setup above) before signup,
+quote submission, AI analysis, or payments will work end-to-end. `npm run
+build` and the public landing page (`/`) work without any of those
+credentials.

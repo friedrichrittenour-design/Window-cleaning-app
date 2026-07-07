@@ -10,6 +10,9 @@ import {
 } from "@/lib/pricing";
 
 export const runtime = "nodejs";
+// Downloading photos + a vision-model call can exceed the default 10s
+// serverless timeout on Vercel; extend it (needs a Pro plan for >60s).
+export const maxDuration = 60;
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
